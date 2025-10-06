@@ -6,23 +6,26 @@ export const config = { runtime: "nodejs" };
 
 export default async function handler(req, res) {
   try {
-    const {
-      html = "<html><body><h1>Hola</h1></body></html>",
-      width = 1080,
-      height = 1080,
-      dpr = 2,
-      wait = "networkidle0",
-      key = "poema.png",
-      overwrite = true,
-    } = (req.method === "POST" ? req.body : req.query) || {};
+    const b = (req.method === "POST" ? req.body : req.query) || {};
+
+    const html = b.html ?? "<html><body><h1>Hola</h1></body></html>";
+    const width = Number(b.width ?? 1080);
+    const height = Number(b.height ?? 1350);
+    const dpr = Number(b.dpr ?? 2);
+    const wait = b.wait ?? "networkidle0";
+
+    // Si quieres URL fija usa overwrite=true; si quieres URL nueva cada vez, usa overwrite=false
+    const key = String(b.key ?? "poema.png");
+    const overwrite = b.overwrite !== undefined
+      ? (b.overwrite === true || b.overwrite === "true")
+      : true; // por defecto sobrescribe
+    const addRandomSuffix = b.addRandomSuffix !== undefined
+      ? (b.addRandomSuffix === true || b.addRandomSuffix === "true")
+      : !overwrite; // si no sobrescribes, genera sufijo
 
     const browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: {
-        width: parseInt(width),
-        height: parseInt(height),
-        deviceScaleFactor: parseFloat(dpr),
-      },
+      defaultViewport: { width, height, deviceScaleFactor: dpr },
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
     });
@@ -33,18 +36,21 @@ export default async function handler(req, res) {
     await browser.close();
 
     const token = process.env.BLOB_READ_WRITE_TOKEN;
-    if (!token) throw new Error("Missing BLOB_READ_WRITE_TOKEN env var");
+    if (!token) return res.status(500).json({ error: "Missing BLOB_READ_WRITE_TOKEN env var" });
 
     const { url } = await put(`ig/${key}`, buf, {
       access: "public",
       contentType: "image/png",
-      addRandomSuffix: !overwrite, // true => URL nueva cada vez
       cacheControlMaxAge: 0,
-      token,                      // <- ¡ESTO ES CLAVE!
+      // reglas de nombre/overwrite
+      addRandomSuffix,
+      allowOverwrite: overwrite,
+      // token de Blob
+      token,
     });
 
-    res.status(200).json({ url, key, width: parseInt(width), height: parseInt(height) });
+    return res.status(200).json({ url, key, width, height, overwrite, addRandomSuffix });
   } catch (e) {
-    res.status(500).json({ error: e.message });
+    return res.status(500).json({ error: String(e?.message || e) });
   }
 }
