@@ -13,7 +13,7 @@ export default async function handler(req, res) {
       dpr = 2,
       wait = "networkidle0",
       key = "poema.png",
-      overwrite = true
+      overwrite = true,
     } = (req.method === "POST" ? req.body : req.query) || {};
 
     const browser = await puppeteer.launch({
@@ -32,11 +32,15 @@ export default async function handler(req, res) {
     const buf = await page.screenshot({ type: "png" });
     await browser.close();
 
+    const token = process.env.BLOB_READ_WRITE_TOKEN;
+    if (!token) throw new Error("Missing BLOB_READ_WRITE_TOKEN env var");
+
     const { url } = await put(`ig/${key}`, buf, {
       access: "public",
       contentType: "image/png",
-      addRandomSuffix: !overwrite,
-      cacheControlMaxAge: 0
+      addRandomSuffix: !overwrite, // true => URL nueva cada vez
+      cacheControlMaxAge: 0,
+      token,                      // <- ¡ESTO ES CLAVE!
     });
 
     res.status(200).json({ url, key, width: parseInt(width), height: parseInt(height) });
