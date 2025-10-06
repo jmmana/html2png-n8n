@@ -1,1 +1,10 @@
-{"name":"html2png","version":"1.0.0","type":"module","dependencies":{"@sparticuz/chromium":"*","puppeteer-core":"*"}}
+{
+  "name": "html2png",
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "@sparticuz/chromium": "*",
+    "puppeteer-core": "*",
+    "@vercel/blob": "*"
+  }
+}
